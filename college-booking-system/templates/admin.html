@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <title>ADMIN DASHBOARD</title>
+    <style>
+        body { background-color: #121212; color: #e0e0e0; font-family: 'Kanit', sans-serif; padding: 40px; }
+        .header { display: flex; justify-content: space-between; border-bottom: 2px solid #ff0000; padding-bottom: 15px; margin-bottom: 30px; }
+        h2 { color: #ff0000; margin: 0; }
+        .logout-btn { color: #ff0000; border: 1px solid #ff0000; padding: 8px 20px; border-radius: 5px; text-decoration: none; }
+        
+        table { width: 100%; border-collapse: collapse; background: #1e1e1e; border-radius: 10px; overflow: hidden; margin-top: 20px; font-size: 14px; }
+        th { background: #ff0000; color: white; padding: 15px; text-align: left; }
+        td { padding: 15px; border-bottom: 1px solid #333; vertical-align: top; }
+        
+        .team-list { color: #888; font-size: 12px; margin-top: 5px; }
+        .btn { padding: 5px 12px; border-radius: 4px; text-decoration: none; color: white; font-weight: bold; font-size: 12px; margin-right: 5px; }
+        .btn-approve { background: #28a745; } .btn-delete { background: #dc3545; }
+        .bg-pending { background: #ffc107; color: black; padding: 2px 6px; border-radius: 4px; }
+        .bg-approved { background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>ADMIN CONTROL</h2>
+        <a href="/logout" class="logout-btn">Logout</a>
+    </div>
+
+    <div style="display:flex; gap:20px; text-align:center;">
+        <div style="flex:1; background:#1e1e1e; padding:20px; border-left:5px solid #007bff;"><h3>{{ total }}</h3><p>ทั้งหมด</p></div>
+        <div style="flex:1; background:#1e1e1e; padding:20px; border-left:5px solid #ffc107;"><h3>{{ pending }}</h3><p>รออนุมัติ</p></div>
+        <div style="flex:1; background:#1e1e1e; padding:20px; border-left:5px solid #28a745;"><h3>{{ approved }}</h3><p>อนุมัติแล้ว</p></div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ผู้จอง (ID)</th>
+                <th>ทีม (รหัสนักศึกษา)</th>
+                <th>ทรัพยากร</th>
+                <th>เวลา</th>
+                <th>สถานะ</th>
+                <th>จัดการ</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for b in bookings %}
+            <tr>
+                <td>{{ b.user_name }}<br><span style="color:#aaa;">{{ b.booker_id }}</span></td>
+                <td>
+                    <div class="team-list" style="word-wrap: break-word; max-width: 200px;">
+                        เพื่อน: {{ b.participants }}
+                    </div>
+                </td>
+                <td>{{ b.resource }}</td>
+                <td>{{ b.start_time.replace('T', ' ') }}<br>ถึง {{ b.end_time.split('T')[1] }}</td>
+                <td><span class="{% if b.status=='Approved' %}bg-approved{% else %}bg-pending{% endif %}">{{ b.status }}</span></td>
+                <td>
+                    {% if b.status == 'Pending' %}
+                    <a href="/approve/{{ b.id }}" class="btn btn-approve">อนุมัติ</a>
+                    {% endif %}
+                    <a href="/delete/{{ b.id }}" class="btn btn-delete" onclick="return confirm('ยืนยัน?')">ลบ</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

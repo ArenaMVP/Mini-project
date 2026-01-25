@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจองทรัพยากรวิทยาลัย</title>
+    <style>
+        body { background-color: #121212; color: #e0e0e0; font-family: 'Kanit', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; margin: 0; }
+        
+        /* Container ฟอร์มจอง */
+        .container { background-color: #1e1e1e; padding: 40px; border-radius: 12px; border-top: 6px solid #ff0000; width: 100%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 30px; margin-top: 40px; }
+        
+        /* Container ตารางด้านล่าง */
+        .status-container { width: 100%; max-width: 900px; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); margin-top: 20px; }
+        
+        h1, h2 { color: #ff0000; text-align: center; margin-bottom: 10px; }
+        h2 { text-transform: uppercase; font-size: 18px; margin-top: 0; }
+
+        label { display: block; margin-top: 15px; font-size: 14px; color: #aaa; }
+        input, select, textarea { width: 100%; padding: 12px; margin-top: 5px; background: #2d2d2d; border: 1px solid #3d3d3d; color: white; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        input:focus, select:focus, textarea:focus { border-color: #ff0000; outline: none; background: #333; }
+        
+        button { width: 100%; padding: 15px; margin-top: 25px; background-color: #ff0000; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        button:hover { background-color: #cc0000; }
+
+        .hint { font-size: 12px; color: #666; margin-top: 5px; }
+        .admin-link { position: absolute; top: 20px; right: 20px; color: #666; text-decoration: none; font-size: 13px; padding: 8px 15px; border: 1px solid #444; border-radius: 20px; transition: 0.3s; }
+        .admin-link:hover { color: white; border-color: #ff0000; }
+
+        /* Table Style */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th { background: #ff0000; color: white; padding: 15px; text-align: left; font-size: 14px; }
+        td { padding: 15px; border-bottom: 1px solid #333; font-size: 14px; }
+        tr:last-child td { border-bottom: none; }
+
+        /* Modal */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; }
+        .modal-content { background: #1e1e1e; padding: 30px; border-radius: 10px; border: 2px solid; text-align: center; max-width: 400px; position: relative; }
+        .modal-error { border-color: #dc3545; } .modal-success { border-color: #28a745; }
+        .btn-modal { padding: 10px 30px; margin-top: 20px; cursor: pointer; border: none; border-radius: 5px; color: white; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <a href="/login" class="admin-link">🔒 Staff Login</a>
+
+    <div class="container">
+        <h1>BOOKING SYSTEM</h1>
+        <p style="text-align:center; color:#666; font-size:12px; margin-top:0;">*เมื่อจองแล้ว จะไม่สามารถจองได้อีก 2 สัปดาห์</p>
+        
+        <form id="bookForm" action="/book" method="POST">
+            <label>ชื่อผู้จอง:</label>
+            <input type="text" name="user_name" required placeholder="ระบุชื่อ-นามสกุล">
+            
+            <label>รหัสนักศึกษา (ผู้จอง):</label>
+            <input type="text" name="booker_id" required placeholder="เช่น 66001234">
+
+            <label>ทรัพยากร:</label>
+            <select name="resource" id="resourceSelect" onchange="updateLimit()">
+                <option value="สนามกีฬา">สนามกีฬา (สูงสุด 12 คน)</option>
+                <option value="ห้องประชุม">ห้องประชุม (สูงสุด 20 คน)</option>
+                <option value="ห้องแล็บคอมพิวเตอร์">ห้องแล็บคอมพิวเตอร์ (สูงสุด 16 คน)</option>
+            </select>
+            
+            <label>รหัสนักศึกษาเพื่อนร่วมทีม (คั่นด้วยเครื่องหมายจุลภาค , ):</label>
+            <textarea name="participants" rows="3" placeholder="เช่น 66005555, 66006666, 66007777"></textarea>
+            <div id="limitHint" class="hint">สามารถเพิ่มเพื่อนได้อีก 11 คน (รวมคนจองเป็น 12)</div>
+
+            <label>วันที่จอง:</label>
+            <input type="date" id="booking_date" name="booking_date" required>
+            
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;"><label>เริ่ม:</label><select id="start_time" name="start_time" required></select></div>
+                <div style="flex: 1;"><label>สิ้นสุด:</label><select id="end_time" name="end_time" required></select></div>
+            </div>
+            
+            <button type="submit">ยืนยันการจอง</button>
+        </form>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/my_bookings" style="color: #ff0000; font-size: 14px;">🔍 ตรวจสอบตารางการจอง / ประวัติ</a>
+            <br>
+            <button type="button" onclick="document.getElementById('qrModal').style.display='flex'" style="background:none; border:none; color:#888; margin-top:10px; font-size:12px; cursor:pointer;">📲 QR Code</button>
+        </div>
+    </div>
+
+    <div class="status-container">
+        <h2>ปฏิทินสถานะ (อนุมัติแล้ว)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ผู้จอง</th>
+                    <th>ทรัพยากร</th>
+                    <th>เวลาเริ่ม</th>
+                    <th>เวลาสิ้นสุด</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in bookings %}
+                <tr>
+                    <td>{{ b.user_name }}</td>
+                    <td>{{ b.resource }}</td>
+                    <td>{{ b.start_time.replace('T', ' ') }}</td>
+                    <td>{{ b.end_time.replace('T', ' ') }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align: center; color: #666;">ยังไม่มีการจองในขณะนี้</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+        <div id="msgModal" class="modal" style="display: flex;">
+            <div class="modal-content {% if category == 'error' %}modal-error{% else %}modal-success{% endif %}">
+                <h2 style="color: {% if category == 'error' %}#dc3545{% else %}#28a745{% endif %};">
+                    {% if category == 'error' %}⛔ ผิดพลาด{% else %}✅ สำเร็จ{% endif %}
+                </h2>
+                <p>{{ message }}</p>
+                <button class="btn-modal" style="background:{% if category == 'error' %}#dc3545{% else %}#28a745{% endif %}" onclick="document.getElementById('msgModal').style.display='none'">ตกลง</button>
+            </div>
+        </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div id="qrModal" class="modal">
+        <div class="modal-content" style="border-color:white;">
+            <span onclick="document.getElementById('qrModal').style.display='none'" style="position:absolute; top:10px; right:15px; cursor:pointer; font-size:24px; color:#aaa;">&times;</span>
+            <h3 style="margin-top:0;">สแกนเพื่อใช้งาน</h3>
+            <img src="/qrcode_img" style="width:200px; margin:10px;">
+        </div>
+    </div>
+
+    <script>
+        // Config จำนวนคน
+        const limits = { "สนามกีฬา": 12, "ห้องประชุม": 20, "ห้องแล็บคอมพิวเตอร์": 16 };
+
+        function updateLimit() {
+            const resource = document.getElementById('resourceSelect').value;
+            const max = limits[resource] || 10;
+            document.getElementById('limitHint').innerText = `ห้องนี้รับได้ ${max} คน (รวมคนจอง) - ใส่เพื่อนเพิ่มได้ ${max - 1} รหัส`;
+        }
+
+        const now = new Date();
+        document.getElementById('booking_date').value = now.toISOString().split('T')[0];
+        document.getElementById('booking_date').min = now.toISOString().split('T')[0];
+
+        function populateTime(id) {
+            const sel = document.getElementById(id);
+            for(let h=8; h<=20; h++) {
+                sel.add(new Option(`${h.toString().padStart(2,'0')}:00`, `${h.toString().padStart(2,'0')}:00`));
+                if(h<20) sel.add(new Option(`${h.toString().padStart(2,'0')}:30`, `${h.toString().padStart(2,'0')}:30`));
+            }
+        }
+        populateTime('start_time'); populateTime('end_time');
+        updateLimit(); // เรียกครั้งแรกเพื่อเซ็ตข้อความ Hint
+    </script>
+</body>
+</html>
