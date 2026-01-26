@@ -9,7 +9,8 @@ import sys
 # [เพิ่มใหม่] นำเข้า pyngrok
 from pyngrok import ngrok, conf
 
-app = Flask(__name__)
+# เพิ่ม template_folder='.' เข้าไป
+app = Flask(__name__, template_folder='.')
 app.secret_key = 'yala_tech_booking_system'
 
 # Config จำนวนคน
@@ -69,7 +70,7 @@ def index():
     conn = get_db_connection()
     bookings = conn.execute('SELECT * FROM bookings WHERE status = "Approved" ORDER BY start_time DESC').fetchall()
     conn.close()
-    return render_template('index.html', bookings=bookings, resource_limits=RESOURCE_LIMITS)
+    return render_template('booking.html', bookings=bookings, resource_limits=RESOURCE_LIMITS)
 
 @app.route('/book', methods=['POST'])
 def book():
