@@ -1,15 +1,11 @@
+import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
 import sqlite3
 from datetime import datetime, timedelta
-import socket
 import qrcode
 from io import BytesIO
-import sys
 
-# [เพิ่มใหม่] นำเข้า pyngrok
-from pyngrok import ngrok, conf
-
-# เพิ่ม template_folder='.' เข้าไป
+# ใช้ template_folder='.' เพื่อให้หาไฟล์ html ในโฟลเดอร์เดียวกันเจอ
 app = Flask(__name__, template_folder='.')
 app.secret_key = 'yala_tech_booking_system'
 
@@ -19,9 +15,6 @@ RESOURCE_LIMITS = {
     "ห้องประชุม": 20,
     "ห้องแล็บคอมพิวเตอร์": 16
 }
-
-# ตัวแปรเก็บ URL ปัจจุบัน (จะถูกอัปเดตตอนรัน)
-CURRENT_URL = ""
 
 def get_db_connection():
     conn = sqlite3.connect('database.db')
@@ -41,25 +34,11 @@ def init_db():
     conn.commit()
     conn.close()
 
-def get_local_ip():
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except:
-        return '127.0.0.1'
-
 @app.route('/qrcode_img')
 def qrcode_img():
-    # [แก้ไข] ใช้ URL ที่เราเตรียมไว้ (ถ้ามี Ngrok ก็ใช้ Ngrok, ถ้าไม่มีใช้ Local IP)
-    global CURRENT_URL
-    if not CURRENT_URL:
-        ip = get_local_ip()
-        CURRENT_URL = f"http://{ip}:5000"
-    
-    img = qrcode.make(CURRENT_URL)
+    # บน Render ใช้ request.host_url ได้เลย ไม่ต้องหา IP เอง
+    base_url = request.host_url
+    img = qrcode.make(base_url)
     buf = BytesIO()
     img.save(buf)
     buf.seek(0)
@@ -67,9 +46,13 @@ def qrcode_img():
 
 @app.route('/')
 def index():
-    conn = get_db_connection()
-    bookings = conn.execute('SELECT * FROM bookings WHERE status = "Approved" ORDER BY start_time DESC').fetchall()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        bookings = conn.execute('SELECT * FROM bookings WHERE status = "Approved" ORDER BY start_time DESC').fetchall()
+        conn.close()
+    except:
+        init_db()
+        bookings = []
     return render_template('booking.html', bookings=bookings, resource_limits=RESOURCE_LIMITS)
 
 @app.route('/book', methods=['POST'])
@@ -93,10 +76,15 @@ def book():
     time_end = request.form['end_time']
     start_str = f"{date}T{time_start}"
     end_str = f"{date}T{time_end}"
-    start_dt = datetime.fromisoformat(start_str)
-    end_dt = datetime.fromisoformat(end_str)
-    now = datetime.now()
+    
+    try:
+        start_dt = datetime.fromisoformat(start_str)
+        end_dt = datetime.fromisoformat(end_str)
+    except ValueError:
+        flash('รูปแบบเวลาไม่ถูกต้อง', 'error')
+        return redirect(url_for('index'))
 
+    now = datetime.now()
     if start_dt < now:
         flash('ผิดพลาด: ไม่สามารถจองเวลาย้อนหลังได้!', 'error')
         return redirect(url_for('index'))
@@ -183,9 +171,7 @@ def admin():
     approved = conn.execute("SELECT COUNT(*) FROM bookings WHERE status = 'Approved'").fetchone()[0]
     conn.close()
     
-    # ส่งลิงก์ออนไลน์ไปแสดงหน้า Admin ด้วย
-    display_url = CURRENT_URL if CURRENT_URL else f"http://{get_local_ip()}:5000"
-    return render_template('admin.html', bookings=bookings, total=total, pending=pending, approved=approved, server_url=display_url)
+    return render_template('admin.html', bookings=bookings, total=total, pending=pending, approved=approved, server_url=request.host_url)
 
 @app.route('/approve/<int:id>')
 def approve(id):
@@ -213,19 +199,6 @@ def logout():
 
 if __name__ == '__main__':
     init_db()
-    
-    # --- [ส่วนสำคัญ] เปิดระบบออนไลน์ด้วย Ngrok ---
-    try:
-        # [แก้ไข] เอา Token มาใส่ตรงนี้ครับ (ใส่ในเครื่องหมายคำพูด)
-        ngrok.set_auth_token("38kocclrymX71cYDZMeB1IFXVNQ_6vSVVazAqsdUuus8LrnNJ")
-
-        # เปิดท่อเชื่อมต่อ Port 5000
-        public_url = ngrok.connect(5000).public_url
-        CURRENT_URL = public_url
-        print(f"\n * 🌍 ออนไลน์แล้ว! เข้าใช้งานได้ทั่วโลกที่: {public_url}")
-        print(f" * 📲 QR Code จะพาไปที่ลิงก์นี้โดยอัตโนมัติ\n")
-    except Exception as e:
-        print(f"\n * ⚠️ ไม่สามารถเชื่อมต่อ Ngrok ได้: {e}")
-        print(" * ระบบจะทำงานในโหมด Local WiFi แทน\n")
-
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    # [จุดสำคัญ] รับค่า Port จาก Render (ถ้าไม่มีให้ใช้ 5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
