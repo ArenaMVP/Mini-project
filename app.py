@@ -176,11 +176,14 @@ def admin():
 @app.route('/approve/<int:id>')
 def approve(id):
     if not session.get('logged_in'): return redirect(url_for('login'))
-    conn = get_db_connection()
-    conn.execute('UPDATE bookings SET status = "Approved" WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    flash('อนุมัติเรียบร้อย!', 'success')
+    try:
+        conn = get_db_connection()
+        conn.execute("UPDATE bookings SET status = 'Approved' WHERE id = ?", (id,))
+        conn.commit()
+        conn.close()
+        flash('อนุมัติเรียบร้อย!', 'success')
+    except Exception as e:
+        flash(f'เกิดข้อผิดพลาด: {e}', 'error')
     return redirect(url_for('admin'))
 
 @app.route('/delete/<int:id>')
